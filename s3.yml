@@ -1,0 +1,41 @@
+Description: tutai92 - Project 02 - Deploy a high availability web app using CloudFormation - application specific resources
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Project name used for tagging resources
+
+Resources:
+
+  S3BucketUdagram:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: project02-udagram-s3bucket-tutai92
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-UdagramS3BucketArn"
+
+# Outputs: 
+#   S3BucketUdagramName:
+#     Description: Name S3 bucket - tutai92
+#     Value: !GetAtt S3BucketUdagram.BucketName
+#     Export:
+#       Name: !Sub "${ProjectName}-S3BucketUdagram"
+  
+#   S3BucketUdagramARN:
+#     Description: The ARN of the S3 bucket - tutai92
+#     Value: !GetAtt S3BucketUdagram.Arn
+#     Export:
+#       Name: !Sub "${ProjectName}-S3BucketUdagramARN"

@@ -1,0 +1,195 @@
+Description: tutai92 - Project 02 - Deploy a high availability web app using CloudFormation - application specific resources
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Project name used for tagging resources
+
+  InstanceType:
+    Type: String
+    Description: EC2 instance type. For the second project requirements is t2.micro.
+    AllowedValues:
+      - t2.micro
+      - t3.small
+      - t3.medium
+
+Resources:
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Load Balancer Security Group for ${ProjectName}
+      VpcId:
+        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-load-balancer-security-group
+
+  LoadBalancerWebApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Web Application Security Group for ${ProjectName}
+      VpcId:
+        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-load-balancer-web-application-security-group
+
+  # WebApplicationLaunchTemplate:
+  #   Type: AWS::EC2::LaunchTemplate
+  #   Properties:
+  #     LaunchTemplateName: !Sub ${ProjectName}-web-servers-application
+  #     LaunchTemplateData:
+  #       UserData:
+  #         Fn::Base64: !Sub |
+  #           #!/bin/bash
+
+  #           sudo apt update
+  #           sudo apt install unzip apache2 -y
+  #           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  #           unzip awscliv2.zip
+  #           ./aws/install
+
+  #           aws s3 cp s3://dev-udagram-prj-2/udagram.zip . 
+  #           unzip -o udagram.zip
+  #           sudo rm ~/../../var/www/html/index.html
+  #           sudo mv -v ./udagram/* ~/../../var/www/html
+  #           cd ~/../../var/www/html
+            
+  #           sudo chown -R www-data:www-data .
+  #           sudo systemctl start apache2.service
+
+  #       ImageId: ami-053b0d53c279acc90
+  #       SecurityGroupIds:
+  #         - !Ref LoadBalancerWebApplicationSecurityGroup
+  #       InstanceType: !Ref InstanceType
+  #       BlockDeviceMappings:
+  #         - DeviceName: "/dev/sdk"
+  #           Ebs:
+  #             VolumeSize: "10"
+  #       IamInstanceProfile:
+  #         Name:
+  #           Fn::ImportValue: !Sub "${ProjectName}-instance-profile"
+
+  UdagramWebAppLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-053b0d53c279acc90
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile:
+        Fn::ImportValue: !Sub "${ProjectName}-instance-profile"
+      SecurityGroups:
+        - !Ref LoadBalancerWebApplicationSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sdk"
+          Ebs:
+            VolumeSize: 10
+            DeleteOnTermination: true
+            VolumeType: gp2
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt update
+          sudo apt install unzip apache2 -y
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
+
+          aws s3 cp s3://project02-udagram-s3bucket-tutai92/udagram.zip . 
+          unzip -o udagram.zip
+          sudo rm ~/../../var/www/html/index.html
+          sudo mv -v ./udagram/* ~/../../var/www/html
+          cd ~/../../var/www/html
+
+          sudo chown -R www-data:www-data .
+          sudo systemctl start apache2.service
+
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId:
+        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
+
+  WebAppGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub ${ProjectName}-private-subnet1
+        - Fn::ImportValue: !Sub ${ProjectName}-private-subnet2
+      LaunchConfigurationName: !Ref UdagramWebAppLaunchConfiguration
+      MinSize: 2
+      DesiredCapacity: 2
+      MaxSize: 3
+      TargetGroupARNs:
+        - !Ref WebAppTargetGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-web-app-autoscaling-group
+          PropagateAtLaunch: true
+
+  WebAppLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - Fn::ImportValue: !Sub ${ProjectName}-public-subnet1
+        - Fn::ImportValue: !Sub ${ProjectName}-public-subnet2
+      SecurityGroups:
+        - Ref: LoadBalancerSecurityGroup
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: WebAppTargetGroup
+      LoadBalancerArn:
+        Ref: WebAppLB
+      Port: "80"
+      Protocol: HTTP
+
+  ALBListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref WebAppTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: [/]
+      ListenerArn: !Ref Listener
+      Priority: 1
+
+Outputs:
+  LoadBalancerDNSName:
+    Description: DNS name of the load balancer
+    Value: !GetAtt WebAppLB.DNSName
+    Export:
+      Name: !Sub ${ProjectName}-load-balancer-dns

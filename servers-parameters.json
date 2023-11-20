@@ -1,0 +1,12 @@
+[
+    {
+        "ParameterKey": "ProjectName",
+        "ParameterValue": "tutai92-project02-udagram"
+    },
+    {
+		"ParameterKey": "InstanceType",
+		"ParameterValue": "t3.small"
+	}
+]
+
+  
