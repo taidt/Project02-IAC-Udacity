@@ -1,4 +1,4 @@
-Description: tutai92 - Project 02 - Deploy a high availability web app using CloudFormation - application specific resources
+Description: tutai92 - Project 02 - Deploy a high availability web app using CloudFormation - networking resources
 
 Parameters:
   ProjectName:
@@ -6,23 +6,24 @@ Parameters:
     Description: Project name used for tagging resources
 
 Resources:
-  WebAppInstanceRole:
+  IAMRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${ProjectName}-web-servers-application
+      RoleName: !Sub "${ProjectName}-IAM-Role"
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: 2012-10-17
         Statement:
-          - Effect: "Allow"
+          - Effect: Allow
             Principal:
               Service:
-                - "ec2.amazonaws.com"
+                - ec2.amazonaws.com
             Action:
-              - "sts:AssumeRole"
+              - sts:AssumeRole
+      Path: /
       Policies:
-        - PolicyName: !Sub "${ProjectName}-policy"
+        - PolicyName: !Sub "${ProjectName}-Policy"
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
@@ -44,18 +45,18 @@ Resources:
                   - s3:Get*
                   - s3:Put*
                 Resource:
-                  - !Sub "arn:aws:s3:::project02-udagram-s3bucket-tutai92"
+                  - !Sub "arn:aws:s3:::tutai92-s3-bucket"
 
-  WebAppInstanceProfile:
+  AppInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      Path: "/"
+      Path: /
       Roles:
-        - !Ref WebAppInstanceRole
+        - !Ref IAMRole
 
-Outputs: 
-  WebAppInstanceProfile:
-    Description: Instance Profile
-    Value: !Ref WebAppInstanceProfile
+Outputs:
+  AppInstanceProfile:
+    Description: App Instance Profile
+    Value: !Ref AppInstanceProfile
     Export:
-      Name: !Sub "${ProjectName}-instance-profile"
+      Name: !Sub "${ProjectName}-App-Instance-Profile"

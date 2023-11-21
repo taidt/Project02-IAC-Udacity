@@ -47,13 +47,13 @@ Set up a bastion host (jump box) to allow you to SSH into your private subnet se
 
 aws configure 
 
-input key and private key to login to AWS by AWS CLI. 
+Login to AWS by AWS CLI. 
 
 Step 1: 
 
 - create network
 
-aws cloudformation create-stack  --stack-name tutai92-udagram-network  --template-body file://network.yml  --parameters file://network-parameters.json  --region us-east-1 
+aws cloudformation create-stack  --stack-name tutai92-udagram-network  --template-body file://network.yml  --parameters file://network-parameters.json --capabilities "CAPABILITY_NAMED_IAM" --region us-east-1 
 
 - create stack S3
 
@@ -89,4 +89,9 @@ aws cloudformation delete-stack --stack-name tutai92-udagram-iam --region us-eas
 
 aws cloudformation delete-stack --stack-name tutai92-udagram-servers --region us-east-1 
 
-aws s3 cp udagram.zip s3://project02-udagram-s3bucket-tutai92/
+
+## Results: 
+
+1) Picture folders
+
+2) URL: http://tutai92-project02-udagram-alb-648604683.us-east-1.elb.amazonaws.com/index.html

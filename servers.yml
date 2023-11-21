@@ -1,4 +1,4 @@
-Description: tutai92 - Project 02 - Deploy a high availability web app using CloudFormation - application specific resources
+Description: tutai92 - Project 02 - Deploy a high availability web app using CloudFormation - networking resources
 
 Parameters:
   ProjectName:
@@ -14,17 +14,17 @@ Parameters:
       - t3.medium
 
 Resources:
-  LoadBalancerSecurityGroup:
+  ApplicationLoadBalancerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Load Balancer Security Group for ${ProjectName}
+      GroupDescription: Application Load Balancer Security Group
       VpcId:
-        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
+        Fn::ImportValue: !Sub ${ProjectName}-VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
+          CidrIp: "0.0.0.0/0"
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: 80
@@ -32,164 +32,212 @@ Resources:
           CidrIp: "0.0.0.0/0"
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-load-balancer-security-group
+          Value: !Sub "${ProjectName}-ALB-SecurityGroup"
 
-  LoadBalancerWebApplicationSecurityGroup:
+  ApplicationWebAppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Web Application Security Group for ${ProjectName}
+      GroupDescription: Application Web App Security Group
       VpcId:
-        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
+        Fn::ImportValue: !Sub ${ProjectName}-VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
+          CidrIp: "0.0.0.0/0"
         - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
+          FromPort: 22
+          ToPort: 22
+          CidrIp: "0.0.0.0/0"
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-load-balancer-web-application-security-group
+          Value: !Sub "${ProjectName}-SecurityGroup"
 
-  # WebApplicationLaunchTemplate:
-  #   Type: AWS::EC2::LaunchTemplate
-  #   Properties:
-  #     LaunchTemplateName: !Sub ${ProjectName}-web-servers-application
-  #     LaunchTemplateData:
-  #       UserData:
-  #         Fn::Base64: !Sub |
-  #           #!/bin/bash
-
-  #           sudo apt update
-  #           sudo apt install unzip apache2 -y
-  #           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-  #           unzip awscliv2.zip
-  #           ./aws/install
-
-  #           aws s3 cp s3://dev-udagram-prj-2/udagram.zip . 
-  #           unzip -o udagram.zip
-  #           sudo rm ~/../../var/www/html/index.html
-  #           sudo mv -v ./udagram/* ~/../../var/www/html
-  #           cd ~/../../var/www/html
-            
-  #           sudo chown -R www-data:www-data .
-  #           sudo systemctl start apache2.service
-
-  #       ImageId: ami-053b0d53c279acc90
-  #       SecurityGroupIds:
-  #         - !Ref LoadBalancerWebApplicationSecurityGroup
-  #       InstanceType: !Ref InstanceType
-  #       BlockDeviceMappings:
-  #         - DeviceName: "/dev/sdk"
-  #           Ebs:
-  #             VolumeSize: "10"
-  #       IamInstanceProfile:
-  #         Name:
-  #           Fn::ImportValue: !Sub "${ProjectName}-instance-profile"
-
-  UdagramWebAppLaunchConfiguration:
-    Type: AWS::AutoScaling::LaunchConfiguration
-    Properties:
-      ImageId: ami-053b0d53c279acc90
-      InstanceType: !Ref InstanceType
-      IamInstanceProfile:
-        Fn::ImportValue: !Sub "${ProjectName}-instance-profile"
-      SecurityGroups:
-        - !Ref LoadBalancerWebApplicationSecurityGroup
-      BlockDeviceMappings:
-        - DeviceName: "/dev/sdk"
-          Ebs:
-            VolumeSize: 10
-            DeleteOnTermination: true
-            VolumeType: gp2
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          sudo apt update
-          sudo apt install unzip apache2 -y
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          ./aws/install
-
-          aws s3 cp s3://project02-udagram-s3bucket-tutai92/udagram.zip . 
-          unzip -o udagram.zip
-          sudo rm ~/../../var/www/html/index.html
-          sudo mv -v ./udagram/* ~/../../var/www/html
-          cd ~/../../var/www/html
-
-          sudo chown -R www-data:www-data .
-          sudo systemctl start apache2.service
-
-  WebAppTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      HealthCheckIntervalSeconds: 10
-      HealthCheckPath: /
-      HealthCheckProtocol: HTTP
-      HealthCheckTimeoutSeconds: 8
-      HealthyThresholdCount: 2
-      Port: 80
-      Protocol: HTTP
-      UnhealthyThresholdCount: 5
-      VpcId:
-        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
-
-  WebAppGroup:
+  ApplicationAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       VPCZoneIdentifier:
-        - Fn::ImportValue: !Sub ${ProjectName}-private-subnet1
-        - Fn::ImportValue: !Sub ${ProjectName}-private-subnet2
-      LaunchConfigurationName: !Ref UdagramWebAppLaunchConfiguration
+        - Fn::ImportValue: !Sub ${ProjectName}-PrivateSubnet1
+        - Fn::ImportValue: !Sub ${ProjectName}-PrivateSubnet2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ApplicationLaunchTemplate
+        Version: !GetAtt ApplicationLaunchTemplate.LatestVersionNumber
       MinSize: 2
-      DesiredCapacity: 2
       MaxSize: 3
+      DesiredCapacity: 2
       TargetGroupARNs:
-        - !Ref WebAppTargetGroup
+        - !Ref ApplicationLoadBalancerTargetGroup
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-web-app-autoscaling-group
+          Value: !Sub "${ProjectName}-Application-WebAppAutoScalingGroup"
           PropagateAtLaunch: true
 
-  WebAppLB:
+  # ApplicationLaunchConfiguration:
+  #   Type: AWS::AutoScaling::LaunchConfiguration
+  #   Properties:
+  #     ImageId: ami-0fc5d935ebf8bc3bc
+  #     InstanceType: !Ref InstanceType
+  #     IamInstanceProfile:
+  #       Fn::ImportValue: !Sub "${ProjectName}-App-Instance-Profile"
+  #     SecurityGroups:
+  #       - !Ref ApplicationWebAppSecurityGroup
+  #     BlockDeviceMappings:
+  #       - DeviceName: "/dev/sdk"
+  #         Ebs:
+  #           VolumeSize: 10
+  #           DeleteOnTermination: true
+  #           VolumeType: gp2
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #           #!/bin/bash
+  #           sudo apt update
+  #           sudo apt install unzip apache2 -y
+            
+  #           aws s3 cp s3://tutai92-s3-bucket/tutai92.zip /tmp/
+  #           unzip -o /tmp/tutai92.zip -d /var/www/html/
+
+  #           sudo chown -R www-data:www-data /var/www/html/
+            
+  #           sudo systemctl restart apache2.service
+
+  ApplicationLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${ProjectName}-app-launch-template" 
+      LaunchTemplateData:
+        ImageId: ami-0fc5d935ebf8bc3bc
+        InstanceType: !Ref InstanceType
+        BlockDeviceMappings:
+                -   DeviceName: "/dev/sdk"
+                    Ebs:
+                        VolumeSize: 10
+                        DeleteOnTermination: true
+                        VolumeType: gp2
+        SecurityGroupIds:
+          - !Ref ApplicationWebAppSecurityGroup
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            sudo apt update
+            sudo apt install unzip apache2 -y
+            
+            aws s3 cp s3://tutai92-s3-bucket/tutai92.zip /tmp/
+            unzip -o /tmp/tutai92.zip -d /var/www/htm
+            sudo chown -R www-data:www-data /var/www/html/
+            
+            sudo systemctl restart apache2.service
+            cd /var/www/html
+            echo "it works! Udagram, Udacity" > index.html
+
+  ApplicationLoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ProjectName}-ALB-TG"
+      Port: 80
+      Protocol: HTTP
+      VpcId:
+        Fn::ImportValue: !Sub ${ProjectName}-VPC
+      TargetType: instance
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /index.html
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200
+
+  ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
+      Name: !Sub "${ProjectName}-ALB"
       Subnets:
-        - Fn::ImportValue: !Sub ${ProjectName}-public-subnet1
-        - Fn::ImportValue: !Sub ${ProjectName}-public-subnet2
+        - Fn::ImportValue: !Sub ${ProjectName}-PublicSubnet1
+        - Fn::ImportValue: !Sub ${ProjectName}-PublicSubnet2
       SecurityGroups:
-        - Ref: LoadBalancerSecurityGroup
+        - !Ref ApplicationLoadBalancerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-Application-LoadBalancer"
 
-  Listener:
+  ApplicationLoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
       DefaultActions:
         - Type: forward
-          TargetGroupArn:
-            Ref: WebAppTargetGroup
-      LoadBalancerArn:
-        Ref: WebAppLB
-      Port: "80"
-      Protocol: HTTP
+          TargetGroupArn: !Ref ApplicationLoadBalancerTargetGroup
 
-  ALBListenerRule:
+  ApplicationLoadBalancerListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       Actions:
         - Type: forward
-          TargetGroupArn: !Ref WebAppTargetGroup
+          TargetGroupArn: !Ref ApplicationLoadBalancerTargetGroup
       Conditions:
         - Field: path-pattern
-          Values: [/]
-      ListenerArn: !Ref Listener
+          Values:
+            - /*
+      ListenerArn: !Ref ApplicationLoadBalancerListener
       Priority: 1
 
+  AutoScalingGroupScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ApplicationAutoScalingGroup
+      Cooldown: 300
+      ScalingAdjustment: 1
+
+  AutoScalingGroupScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ApplicationAutoScalingGroup
+      Cooldown: 300
+      ScalingAdjustment: -1
+
+
+  AutoScalingGroupScaleUpAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-up if CPU > 80% for 2 minutes
+      AlarmActions:
+        - !Ref AutoScalingGroupScaleUpPolicy
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 120
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref ApplicationAutoScalingGroup
+
+  AutoScalingGroupScaleDownAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-down if CPU < 20% for 2 minutes
+      AlarmActions:
+        - !Ref AutoScalingGroupScaleDownPolicy
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 120
+      EvaluationPeriods: 2
+      Threshold: 20
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref ApplicationAutoScalingGroup
+
 Outputs:
-  LoadBalancerDNSName:
-    Description: DNS name of the load balancer
-    Value: !GetAtt WebAppLB.DNSName
+  # Add your outputs here
+  ApplicationLoadBalancerDNSName:
+    Description: Application Load Balancer DNS Name
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
     Export:
-      Name: !Sub ${ProjectName}-load-balancer-dns
+      Name: !Sub ${ProjectName}-Application-LoadBalancer-DNSName

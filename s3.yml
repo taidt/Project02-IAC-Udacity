@@ -1,16 +1,15 @@
-Description: tutai92 - Project 02 - Deploy a high availability web app using CloudFormation - application specific resources
+Description: tutai92 - Project 02 - Deploy a high availability web app using CloudFormation - networking resources
 
 Parameters:
-  ProjectName:
+   ProjectName:
     Type: String
     Description: Project name used for tagging resources
 
 Resources:
-
-  S3BucketUdagram:
+  ApplicationUdagramS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: project02-udagram-s3bucket-tutai92
+      BucketName: tutai92-s3-bucket
       AccessControl: Private
       VersioningConfiguration:
         Status: Enabled
@@ -23,19 +22,17 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-UdagramS3BucketArn"
 
-# Outputs: 
-#   S3BucketUdagramName:
-#     Description: Name S3 bucket - tutai92
-#     Value: !GetAtt S3BucketUdagram.BucketName
+# Outputs:
+#   # Add your outputs here
+#   S3BucketName:
+#     Description: The name of the S3 bucket that will store the website content
+#     Value: !Ref ApplicationUdagramS3Bucket
 #     Export:
-#       Name: !Sub "${ProjectName}-S3BucketUdagram"
+#       Name: !Sub "${EnvironmentName}-ApplicationUdagramS3Bucket"
   
-#   S3BucketUdagramARN:
-#     Description: The ARN of the S3 bucket - tutai92
-#     Value: !GetAtt S3BucketUdagram.Arn
+#   S3BucketArn:
+#     Description: The ARN of the S3 bucket that will store the website content
+#     Value: !GetAtt ApplicationUdagramS3Bucket.Arn
 #     Export:
-#       Name: !Sub "${ProjectName}-S3BucketUdagramARN"
+#       Name: !Sub "${EnvironmentName}-UdagramS3BucketArn"
