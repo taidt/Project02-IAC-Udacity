@@ -72,34 +72,6 @@ Resources:
           Value: !Sub "${ProjectName}-Application-WebAppAutoScalingGroup"
           PropagateAtLaunch: true
 
-  # ApplicationLaunchConfiguration:
-  #   Type: AWS::AutoScaling::LaunchConfiguration
-  #   Properties:
-  #     ImageId: ami-0fc5d935ebf8bc3bc
-  #     InstanceType: !Ref InstanceType
-  #     IamInstanceProfile:
-  #       Fn::ImportValue: !Sub "${ProjectName}-App-Instance-Profile"
-  #     SecurityGroups:
-  #       - !Ref ApplicationWebAppSecurityGroup
-  #     BlockDeviceMappings:
-  #       - DeviceName: "/dev/sdk"
-  #         Ebs:
-  #           VolumeSize: 10
-  #           DeleteOnTermination: true
-  #           VolumeType: gp2
-  #     UserData:
-  #       Fn::Base64: !Sub |
-  #           #!/bin/bash
-  #           sudo apt update
-  #           sudo apt install unzip apache2 -y
-            
-  #           aws s3 cp s3://tutai92-s3-bucket/tutai92.zip /tmp/
-  #           unzip -o /tmp/tutai92.zip -d /var/www/html/
-
-  #           sudo chown -R www-data:www-data /var/www/html/
-            
-  #           sudo systemctl restart apache2.service
-
   ApplicationLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -126,8 +98,6 @@ Resources:
             sudo chown -R www-data:www-data /var/www/html/
             
             sudo systemctl restart apache2.service
-            cd /var/www/html
-            echo "it works! Udagram, Udacity" > index.html
 
   ApplicationLoadBalancerTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
